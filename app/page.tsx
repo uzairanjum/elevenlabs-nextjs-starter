@@ -26,14 +26,6 @@ interface TranscriptMessage {
   timestamp: Date;
 }
 
-interface CollectedData {
-  name: string | null;
-  company: string | null;
-  contact: string | null;
-  device: string | null;
-  location: string | null;
-}
-
 interface UpdateTicketParams {
   contact_name: string;
   contact_company_name: string;
@@ -46,13 +38,6 @@ interface UpdateTicketParams {
 export default function VoiceAgentPage() {
   const [transcripts, setTranscripts] = useState<TranscriptMessage[]>([]);
   const transcriptRef = useRef<TranscriptMessage[]>([]);
-  const [collectedData, setCollectedData] = useState<CollectedData>({
-    name: null,
-    company: null,
-    contact: null,
-    device: null,
-    location: null,
-  });
   const [callEnded, setCallEnded] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
   const [isCallActive, setIsCallActive] = useState(false);
@@ -70,13 +55,6 @@ export default function VoiceAgentPage() {
       setReconnectAttempts(0);
       if (!isReconnecting) {
         setTranscripts([]);
-        setCollectedData({
-          name: null,
-          company: null,
-          contact: null,
-          device: null,
-          location: null,
-        });
         setToolCallResults({});
       } else {
         toast.success('Reconnected successfully!');
@@ -181,57 +159,6 @@ export default function VoiceAgentPage() {
     };
   }, [isCallActive, conversation.status]);
 
-  const parseCollectedData = useCallback(() => {
-    const patterns = {
-      name: /(?:my name is|i'm|i am|this is)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/i,
-      company: /(?:company is|company's|from|working at|work at)\s+([A-Z][A-Za-z\s&]+?)(?:\.|,|$)/i,
-      contact: /[\w.-]+@[\w.-]+\.\w+|\+?[\d\s\-\(\)]{10,}/,
-      device: /(?:device|affected device|printer|computer|laptop|server|router|scanner|monitor)\s*[:\-]?\s*([^\.]+?)(?:\.|$)/i,
-      location: /(?:located|location|city|address|in|based in)\s*(?:in|at|:)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?(?:\s*,\s*[A-Z]{2})?)/i,
-    };
-
-    const extracted: CollectedData = {
-      name: null,
-      company: null,
-      contact: null,
-      device: null,
-      location: null,
-    };
-
-    for (const msg of transcripts) {
-      if (msg.speaker === 'user') {
-        const text = msg.text;
-        
-        if (!extracted.name) {
-          const nameMatch = text.match(patterns.name);
-          if (nameMatch) extracted.name = nameMatch[1];
-        }
-        
-        if (!extracted.company) {
-          const companyMatch = text.match(patterns.company);
-          if (companyMatch) extracted.company = companyMatch[1];
-        }
-        
-        if (!extracted.contact) {
-          const contactMatch = text.match(patterns.contact);
-          if (contactMatch) extracted.contact = contactMatch[0];
-        }
-        
-        if (!extracted.device) {
-          const deviceMatch = text.match(patterns.device);
-          if (deviceMatch) extracted.device = deviceMatch[1];
-        }
-        
-        if (!extracted.location) {
-          const locationMatch = text.match(patterns.location);
-          if (locationMatch) extracted.location = locationMatch[1];
-        }
-      }
-    }
-
-    setCollectedData(extracted);
-  }, [transcripts]);
-
   const startCall = useCallback(async () => {
     try {
       setCallDuration(0);
@@ -264,18 +191,10 @@ export default function VoiceAgentPage() {
 
   const endCall = useCallback(async () => {
     await conversation.endSession();
-    parseCollectedData();
-  }, [conversation, parseCollectedData]);
+  }, [conversation]);
 
   const resetCall = () => {
     setTranscripts([]);
-    setCollectedData({
-      name: null,
-      company: null,
-      contact: null,
-      device: null,
-      location: null,
-    });
     setCallEnded(false);
     setCallDuration(0);
     setToolCallResults({});
@@ -289,14 +208,6 @@ export default function VoiceAgentPage() {
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
-
-  const fieldsCompleted = [
-    collectedData.name,
-    collectedData.company,
-    collectedData.contact,
-    collectedData.device,
-    collectedData.location,
-  ].filter(Boolean).length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -351,17 +262,33 @@ export default function VoiceAgentPage() {
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-4">
                     <div className="relative">
-                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center animate-pulse">
-                        <Bot className="w-8 h-8 text-white" />
-                      </div>
+                      {connectionStatus === 'reconnecting' ? (
+                        <div className="w-16 h-16 rounded-full bg-yellow-500 flex items-center justify-center animate-pulse">
+                          <RefreshCw className="w-8 h-8 text-white animate-spin" />
+                        </div>
+                      ) : connectionStatus === 'unstable' ? (
+                        <div className="w-16 h-16 rounded-full bg-red-500 flex items-center justify-center animate-pulse">
+                          <PhoneOff className="w-8 h-8 text-white" />
+                        </div>
+                      ) : (
+                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center animate-pulse">
+                          <Bot className="w-8 h-8 text-white" />
+                        </div>
+                      )}
                       {conversation.isSpeaking && (
                         <div className="absolute inset-0 rounded-full border-4 border-emerald-400 animate-ping" />
                       )}
                     </div>
                     <div>
-                      <h3 className="text-xl font-semibold text-white">Spencer</h3>
+                      <h3 className="text-xl font-semibold text-white">
+                        {connectionStatus === 'reconnecting' ? 'Reconnecting...' : connectionStatus === 'unstable' ? 'Connection Lost' : 'Spencer'}
+                      </h3>
                       <p className="text-slate-400 text-sm">
-                        {conversation.isSpeaking ? 'Speaking...' : 'Listening...'}
+                        {connectionStatus === 'reconnecting' 
+                          ? `Attempt ${reconnectAttempts + 1}/2...` 
+                          : connectionStatus === 'unstable' 
+                            ? 'Please wait' 
+                            : conversation.isSpeaking ? 'Speaking...' : 'Listening...'}
                       </p>
                     </div>
                   </div>
