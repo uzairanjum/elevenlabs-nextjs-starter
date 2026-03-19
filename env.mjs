@@ -8,9 +8,12 @@ export const env = createEnv({
       .string()
       .min(32, 'Session secret key should be at least 32 characters long'),
   },
-  client: {},
+  client: {
+    NEXT_PUBLIC_AGENT_ID: z.string().optional(),
+  },
   runtimeEnv: {
     ELEVENLABS_API_KEY: process.env.ELEVENLABS_API_KEY,
     IRON_SESSION_SECRET_KEY: process.env.IRON_SESSION_SECRET_KEY,
+    NEXT_PUBLIC_AGENT_ID: process.env.NEXT_PUBLIC_AGENT_ID,
   },
 });

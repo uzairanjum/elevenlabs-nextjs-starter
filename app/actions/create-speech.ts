@@ -15,7 +15,8 @@ export async function generateSpeech(
 
   try {
     const client = clientResult.value;
-    const audioStream = await client.textToSpeech.convert(voiceId, request);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const audioStream = await client.textToSpeech.convert(voiceId, request as any);
 
     const audioBase64 = await streamToBase64(audioStream);
 
